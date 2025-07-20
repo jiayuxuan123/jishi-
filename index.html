@@ -1,0 +1,1571 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>纪时 </title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* --- 全局样式 --- */
+        :root {
+            --bg-color: #f4f5f9;
+            --card-bg-color: #ffffff;
+            --text-color: #333333;
+            --text-secondary-color: #888888;
+            --accent-color: #4a90e2;
+            --red-color: #e95f59;
+            --green-color: #55c470;
+            --border-color: #eee;
+            --modal-overlay-color: rgba(0,0,0,0.5);
+            --accent-color-light: #eaf2fb; /* Light theme specific */
+        }
+
+        body.dark-theme {
+            --bg-color: #121212;
+            --card-bg-color: #1e1e1e;
+            --text-color: #e0e0e0;
+            --text-secondary-color: #aaaaaa;
+            --border-color: #333;
+            --modal-overlay-color: rgba(0,0,0,0.7);
+            --accent-color-light: #2a3a50; /* Dark theme specific */
+        }
+
+        html, body {
+            height: 100%;
+            overscroll-behavior-y: contain; /* 防止滑动时页面回弹 */
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0; padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex; justify-content: center; align-items: center;
+            -webkit-tap-highlight-color: transparent;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .mobile-container {
+            width: 100%; max-width: 420px; height: 100%; max-height: 900px;
+            background-color: var(--card-bg-color);
+            border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            display: flex; flex-direction: column;
+            overflow: hidden; position: relative;
+            transition: background-color 0.3s;
+        }
+        
+        @media (max-width: 480px) {
+            .mobile-container { border-radius: 0; max-height: 100vh; }
+        }
+
+        /* --- 顶部 Header --- */
+        .header {
+            padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;
+            background-color: var(--card-bg-color);
+            border-bottom: 1px solid var(--border-color);
+            flex-shrink: 0; position: relative; z-index: 10;
+            transition: background-color 0.3s, border-color 0.3s;
+        }
+        .header-title { font-size: 20px; font-weight: bold; }
+        .header-icons { display: flex; gap: 18px; font-size: 20px; align-items: center; }
+        .header-icons span { cursor: pointer; }
+        #today-btn { font-size: 14px; font-weight: bold; border: 1px solid var(--text-secondary-color); padding: 2px 6px; border-radius: 4px; }
+        .search-icon, .more-icon { font-size: 24px; color: var(--text-color); }
+        
+        /* --- 搜索栏 --- */
+        .search-bar {
+            position: absolute; top: 0; left: 0; width: 100%;
+            height: 100%; background-color: var(--card-bg-color);
+            display: flex; align-items: center; padding: 0 15px;
+            transform: translateY(-100%); transition: transform 0.3s ease;
+        }
+        .search-bar.active { transform: translateY(0); }
+        .search-bar input {
+            width: calc(100% - 60px); height: 36px; border: none; background: var(--bg-color); /* Adjusted width */
+            border-radius: 18px; padding: 0 15px; font-size: 16px;
+            color: var(--text-color); outline: none;
+        }
+        .search-bar .close-search { font-size: 24px; cursor: pointer; padding-left: 15px; }
+
+        /* --- 主要内容区域 --- */
+        .main-content {
+            flex-grow: 1; overflow: hidden;
+            position: relative;
+        }
+        .views-container {
+            display: flex; height: 100%;
+            /* transition will be dynamically set by JS */
+        }
+        .view {
+            width: 100%; flex-shrink: 0; height: 100%;
+            overflow-y: auto;
+            padding: 0px 15px 20px 15px;
+            box-sizing: border-box;
+        }
+
+        /* --- 底部导航 --- */
+        .bottom-nav {
+            display: flex; justify-content: space-around; padding: 10px 0;
+            background-color: var(--card-bg-color);
+            border-top: 1px solid var(--border-color);
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+            flex-shrink: 0; z-index: 5;
+            transition: background-color 0.3s, border-color 0.3s;
+        }
+        .nav-item {
+            display: flex; flex-direction: column; align-items: center;
+            gap: 4px; font-size: 12px; color: var(--text-secondary-color);
+            cursor: pointer; padding: 5px 15px; border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+        .nav-item.active {
+            color: var(--accent-color);
+            background-color: var(--accent-color-light);
+        }
+        /* Font Awesome 图标样式调整 */
+        .nav-item .fas, .nav-item .far, .nav-item .faj {
+            width: 24px; height: 24px; /* 确保图标大小一致 */
+            font-size: 20px; /* 调整图标字体大小 */
+            display: flex; /* 让图标居中 */
+            justify-content: center;
+            align-items: center;
+        }
+        
+        /* Calendar View Styles */
+        #calendar-view .calendar-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 5px; }
+        #calendar-view .calendar-title { font-size: 24px; font-weight: bold; }
+        #calendar-view .calendar-nav button { background: none; border: none; font-size: 20px; cursor: pointer; padding: 5px 10px; color: var(--text-color); }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center; }
+        .calendar-grid .day-header { font-weight: bold; color: var(--text-secondary-color); font-size: 14px; padding-bottom: 10px; }
+        .calendar-grid .day { padding: 4px 0; font-size: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; aspect-ratio: 1 / 1; border-radius: 50%; cursor: pointer; transition: background-color 0.2s; }
+        .day:hover:not(.other-month) { background-color: var(--bg-color); }
+        .day.selected { background-color: var(--accent-color-light); }
+        .day.today { background-color: var(--accent-color); color: white; }
+        .day.today .lunar-date, .day.today .day-solar-term { color: #e0e0e0; }
+        .day.other-month .day-number { color: var(--text-secondary-color); opacity: 0.5; }
+        .lunar-date, .day-solar-term { font-size: 10px; color: var(--text-secondary-color); }
+        .day-solar-term { color: var(--green-color); font-weight: bold; }
+        .day-dot { width: 5px; height: 5px; border-radius: 50%; background-color: var(--accent-color); position: absolute; bottom: 3px; }
+        .day.today .day-dot { background-color: white; }
+        #daily-almanac-card { background-color: var(--bg-color); border: 1px solid var(--border-color); border-radius: 12px; padding: 15px; margin-top: 20px; transition: background-color 0.3s, border-color 0.3s; }
+        #daily-almanac-card h3 { margin: 0 0 10px 0; font-size: 16px; }
+        #daily-almanac-card .almanac-item { font-size: 14px; line-height: 1.8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        #daily-almanac-card .almanac-item span:first-child { display: inline-block; width: 20px; height: 20px; border-radius: 50%; text-align: center; line-height: 20px; font-size: 12px; margin-right: 8px; color: white; }
+        .yi span:first-child { background-color: var(--green-color); }
+        .ji span:first-child { background-color: var(--red-color); }
+
+        /* Events View & Search Results View Styles */
+        #events-view .event-group, #search-results-view .event-group { margin-bottom: 20px; }
+        #events-view .event-date, #search-results-view .event-date { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; color: var(--text-secondary-color); }
+        #events-view .event-date .day-number, #search-results-view .event-date .day-number { font-size: 28px; font-weight: bold; color: var(--text-color); }
+        .event-card { padding: 15px; border-radius: 12px; margin-bottom: 10px; background-color: var(--bg-color); display: flex; justify-content: space-between; align-items: center; transition: background-color 0.3s; }
+        .event-card .delete-event { cursor: pointer; font-weight: bold; color: var(--red-color); padding: 5px; }
+        #no-events, #no-search-results, #no-custom-countdowns, #no-holidays { text-align: center; color: var(--text-secondary-color); margin-top: 50px; }
+        
+        /* Floating Add Buttons - Adjusted to ensure they don't overlap */
+        .add-button {
+            position: fixed; /* Changed from absolute to fixed relative to container */
+            bottom: calc(var(--bottom-nav-height, 60px) + 20px); /* Adjust based on nav height */
+            right: 20px;
+            width: 50px; height: 50px; border-radius: 50%;
+            background-color: var(--accent-color); color: white;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 30px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            cursor: pointer; z-index: 5;
+            transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+            opacity: 0; /* Hidden by default */
+            pointer-events: none; /* No interaction when hidden */
+        }
+        .add-button.visible {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        /* Adjust button position for wider screens inside the container */
+        @media (min-width: 421px) {
+            .add-button {
+                right: calc(50% - 180px); /* Center relative to max-width container */
+            }
+        }
+
+        /* Modals & Menus */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--modal-overlay-color); z-index: 100;
+            display: none; justify-content: center; align-items: center;
+        }
+        .modal-overlay.show { display: flex; }
+        .modal-content {
+            background: var(--card-bg-color); padding: 20px; border-radius: 12px;
+            width: 90%; max-width: 350px;
+        }
+        .modal-content h3 { margin-top: 0; }
+        .modal-content input, .modal-content select { /* Added select for countdown type */
+            width: calc(100% - 20px); padding: 10px; margin-bottom: 10px;
+            border: 1px solid var(--border-color); border-radius: 8px; font-size: 16px;
+            background-color: var(--bg-color); color: var(--text-color);
+            box-sizing: border-box; /* Ensures padding is included in width */
+        }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+        .modal-actions button {
+            padding: 8px 16px; border-radius: 8px; border: none;
+            cursor: pointer; font-size: 14px;
+        }
+        #modal-save-btn, #countdown-modal-save-btn { background-color: var(--accent-color); color: white; }
+        #modal-cancel-btn, #countdown-modal-cancel-btn { background-color: var(--bg-color); color: var(--text-color); }
+        
+        /* Countdown specific modal fields */
+        #countdown-date-group { display: flex; gap: 10px; margin-bottom: 10px; }
+        #countdown-date-group input { width: auto; flex-grow: 1; }
+        #countdown-repeat-checkbox { margin-left: 5px; }
+
+        .more-menu {
+            position: absolute; top: 60px; right: 15px;
+            background: var(--card-bg-color); border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            z-index: 101; overflow: hidden;
+            display: none;
+        }
+        .more-menu.show { display: block; }
+        .more-menu-item {
+            padding: 12px 20px; font-size: 14px;
+            cursor: pointer; display: flex; align-items: center; gap: 10px;
+        }
+        .more-menu-item:hover { background-color: var(--bg-color); }
+        #theme-toggle-text { flex-grow: 1; }
+
+        /* Countdown View */
+        #countdown-view .section-title { font-size: 14px; color: var(--text-secondary-color); margin: 20px 0 10px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px; }
+        .countdown-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; background-color: var(--bg-color); border-radius: 12px; margin-bottom: 12px; }
+        .countdown-item .info .name { font-size: 18px; font-weight: 500; }
+        .countdown-item .info .date { font-size: 12px; color: var(--text-secondary-color); }
+        .countdown-item .days-left { font-size: 24px; font-weight: bold; color: var(--accent-color); }
+        .countdown-item .days-left span { font-size: 14px; font-weight: normal; }
+        .countdown-item .delete-countdown { cursor: pointer; font-weight: bold; color: var(--red-color); padding: 5px; margin-left: 10px; }
+        
+        /* Almanac View */
+        #almanac-view { padding: 15px 0px; }
+        .almanac-content { background-color: var(--card-bg-color); color: var(--text-color); padding: 20px; border-radius: 12px; }
+        .almanac-date { text-align: center; margin-bottom: 20px; }
+        .almanac-date .large-date { font-size: 70px; font-weight: bold; line-height: 1; }
+        .almanac-date .lunar-info { font-size: 14px; color: var(--text-secondary-color); margin-top: 5px; }
+        .almanac-details .detail-row { display: flex; padding: 10px 0; border-bottom: 1px solid var(--border-color); font-size: 14px; }
+        .almanac-details .label { width: 80px; color: var(--text-secondary-color); flex-shrink: 0; }
+        .almanac-details .value { flex: 1; }
+        .value.good { color: var(--green-color); } /* Changed to green for '宜' */
+        .value.bad { color: var(--red-color); }   /* Changed to red for '忌' */
+        .auspicious-hours { margin-top: 20px; }
+        .auspicious-hours .label { color: var(--text-secondary-color); margin-bottom: 10px; display: block; }
+        .hours-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(45px, 1fr)); gap: 10px; text-align: center; }
+        .hour-item { background-color: var(--bg-color); padding: 8px 0; border-radius: 6px; font-size: 14px; transition: background-color 0.3s; }
+        .hour-item .status-good { font-size: 12px; color: var(--green-color); } /* Changed to green */
+        .hour-item .status-bad { font-size: 12px; color: var(--red-color); }   /* Changed to red */
+
+    </style>
+</head>
+<body>
+    <div class="mobile-container">
+        <header class="header">
+            <h1 class="header-title" id="main-header-title"></h1>
+            <div class="header-icons">
+                <span id="today-btn">今天</span>
+                <span class="search-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="currentColor"><path d="M0 0h24v24H0z" fill="none"/><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                </span>
+                <span class="more-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="currentColor"><path d="M0 0h24v24H0z" fill="none"/><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+                </span>
+            </div>
+            <div class="search-bar">
+                <input type="search" id="search-input" placeholder="搜索事件...">
+                <span class="close-search">✕</span>
+            </div>
+            <div class="more-menu">
+                <div class="more-menu-item" id="theme-toggle">
+                    <span id="theme-toggle-icon"></span>
+                    <span id="theme-toggle-text">切换深色模式</span>
+                </div>
+                <div class="more-menu-item" id="export-events">
+                    <i class="fas fa-file-export"></i> 导出事件
+                    </div>
+                <div class="more-menu-item" id="import-events">
+                    <i class="fas fa-file-import"></i> 导入事件
+                    </div>
+                <div class="more-menu-item" id="clear-events" style="color: var(--red-color);">
+                    <i class="fas fa-trash-alt"></i> 清空所有事件和倒数日
+                    </div>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="views-container">
+                <div id="calendar-view" class="view">
+                    <div class="calendar-header">
+                        <div class="calendar-title"></div>
+                        <div class="calendar-nav">
+                            <button id="prev-month">&lt;</button>
+                            <button id="next-month">&gt;</button>
+                        </div>
+                    </div>
+                    <div class="calendar-grid"></div>
+                    <div id="daily-almanac-card">
+                        <h3 id="almanac-card-title"></h3>
+                        <div class="almanac-item yi"><span>宜</span><span id="almanac-yi"></span></div>
+                        <div class="almanac-item ji"><span>忌</span><span id="almanac-ji"></div>
+                    </div>
+                </div>
+                <div id="events-view" class="view">
+                    </div>
+                <div id="countdown-view" class="view">
+                    </div>
+                <div id="almanac-view" class="view">
+                    <div class="almanac-content">
+                        <div class="almanac-date">
+                            <div class="large-date" id="almanac-full-day"></div>
+                            <div class="lunar-info" id="almanac-full-lunar-info"></div>
+                        </div>
+                        <div class="almanac-details">
+                            <div class="detail-row"><div class="label">宜</div><div class="value good" id="almanac-full-yi"></div></div>
+                            <div class="detail-row"><div class="label">忌</div><div class="value bad" id="almanac-full-ji"></div></div>
+                            <div class="detail-row"><div class="label">相冲</div><div class="value" id="almanac-full-chong"></div></div>
+                            <div class="detail-row"><div class="label">胎神</div><div class="value" id="almanac-full-taishen"></div></div>
+                            <div class="detail-row"><div class="label">彭祖百忌</div><div class="value" id="almanac-full-pengzu"></div></div>
+                            <div class="detail-row"><div class="label">吉神宜趋</div><div class="value" id="almanac-full-jishen"></div></div>
+                            <div class="detail-row"><div class="label">凶煞宜忌</div><div class="value" id="almanac-full-xiongshen"></div></div>
+                        </div>
+                        <div class="auspicious-hours">
+                            <div class="label">时辰吉凶</div>
+                            <div class="hours-grid" id="almanac-full-hours"></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="search-results-view" class="view"></div>
+            </div>
+        </main>
+
+        <nav class="bottom-nav">
+            <div class="nav-item" data-view-index="0">
+                <i class="fas fa-calendar-alt"></i> 
+                <span>日历</span>
+            </div>
+            <div class="nav-item" data-view-index="1">
+                <i class="fas fa-list-alt"></i> 
+                <span>事件</span>
+            </div>
+            <div class="nav-item" data-view-index="2">
+                <i class="fas fa-hourglass-half"></i> 
+                <span>倒数日</span>
+            </div>
+            <div class="nav-item" data-view-index="3">
+                <i class="fas fa-toolbox"></i> 
+                <span>黄历</span>
+            </div>
+        </nav>
+
+        <div id="add-event-btn" class="add-button">+</div>
+        <div id="add-countdown-btn" class="add-button">+</div>
+
+    </div>
+
+    <div id="event-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>添加新事件</h3>
+            <input type="hidden" id="event-date-input">
+            <input type="text" id="event-title-input" placeholder="事件标题">
+            <div class="modal-actions">
+                <button id="modal-cancel-btn">取消</button>
+                <button id="modal-save-btn">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="countdown-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>添加倒数日</h3>
+            <input type="text" id="countdown-title-input" placeholder="倒数日名称">
+            <input type="date" id="countdown-date-input">
+            <div>
+                <input type="checkbox" id="countdown-repeat-checkbox">
+                <label for="countdown-repeat-checkbox">每年重复</label>
+            </div>
+            <div class="modal-actions">
+                <button id="countdown-modal-cancel-btn">取消</button>
+                <button id="countdown-modal-save-btn">保存</button>
+            </div>
+        </div>
+    </div>
+    <input type="file" id="import-file-input" accept=".json" style="display: none;">
+
+    <script>
+    // Self-invoking function to encapsulate the entire application
+    (() => {
+        'use strict';
+        
+        // --- App State & Core Variables ---
+        const state = {
+            today: new Date(),
+            currentYear: new Date().getFullYear(),
+            currentMonth: new Date().getMonth(),
+            selectedDate: new Date(), // This is the date selected on the calendar, or today by default
+            events: {}, // Initialize to empty object, will load from localStorage
+            countdowns: [], // New state for countdowns, will load from localStorage
+            theme: localStorage.getItem('calendar_theme') || 'light',
+            activeViewIndex: 0,
+            isSwiping: false,
+            touchStartX: 0,
+            touchMoveX: 0,
+            isSearchBarActive: false,
+            // Cache for API responses to avoid excessive calls (still used for Almanac data)
+            apiCache: {} 
+        };
+        state.today.setHours(0, 0, 0, 0); 
+        state.selectedDate.setHours(0, 0, 0, 0); 
+        
+        const viewIds = ['calendar-view', 'events-view', 'countdown-view', 'almanac-view', 'search-results-view'];
+        // Mapping of view index to relevant nav item index (for main views only)
+        const navItemMap = {
+            0: 0, // Calendar view maps to nav item 0
+            1: 1, // Events view maps to nav item 1
+            2: 2, // Countdown view maps to nav item 2
+            3: 3  // Almanac view maps to nav item 3
+        };
+
+        // --- DOM Elements ---
+        const dom = {
+            body: document.body,
+            headerTitle: document.getElementById('main-header-title'),
+            viewsContainer: document.querySelector('.views-container'),
+            navItems: document.querySelectorAll('.nav-item'),
+            calendarGrid: document.querySelector('#calendar-view .calendar-grid'),
+            calendarTitle: document.querySelector('#calendar-view .calendar-title'),
+            searchBar: document.querySelector('.search-bar'),
+            searchInput: document.getElementById('search-input'),
+            searchResultsView: document.getElementById('search-results-view'),
+            moreMenu: document.querySelector('.more-menu'),
+            eventModal: document.getElementById('event-modal'),
+            eventDateInput: document.getElementById('event-date-input'),
+            eventTitleInput: document.getElementById('event-title-input'),
+            countdownModal: document.getElementById('countdown-modal'), 
+            countdownTitleInput: document.getElementById('countdown-title-input'),
+            countdownDateInput: document.getElementById('countdown-date-input'),
+            countdownRepeatCheckbox: document.getElementById('countdown-repeat-checkbox'),
+            importFileInput: document.getElementById('import-file-input'),
+            themeToggle: document.getElementById('theme-toggle'),
+            themeToggleText: document.getElementById('theme-toggle-text'),
+            themeToggleIcon: document.getElementById('theme-toggle-icon'),
+            dailyAlmanacCard: document.getElementById('daily-almanac-card'),
+            almanacCardTitle: document.getElementById('almanac-card-title'),
+            almanacYi: document.getElementById('almanac-yi'),
+            almanacJi: document.getElementById('almanac-ji'),
+            // New references for floating add buttons
+            addEventBtn: document.getElementById('add-event-btn'),
+            addCountdownBtn: document.getElementById('add-countdown-btn'),
+
+            // Full Almanac View Elements
+            almanacFullDay: document.getElementById('almanac-full-day'),
+            almanacFullLunarInfo: document.getElementById('almanac-full-lunar-info'),
+            almanacFullYi: document.getElementById('almanac-full-yi'),
+            almanacFullJi: document.getElementById('almanac-full-ji'),
+            almanacFullChong: document.getElementById('almanac-full-chong'),
+            almanacFullTaishen: document.getElementById('almanac-full-taishen'),
+            almanacFullPengzu: document.getElementById('almanac-full-pengzu'),
+            almanacFullJishen: document.getElementById('almanac-full-jishen'),
+            almanacFullXiongshen: document.getElementById('almanac-full-xiongshen'),
+            almanacFullHours: document.getElementById('almanac-full-hours')
+        };
+
+        // --- API Fetching Utility (Still used for "宜","忌" etc. from external API) ---
+        async function fetchLunarData(dateString) {
+            const apiUrl = `https://www.36jxs.com/api/Commonweal/almanac?sun=${dateString}`;
+            
+            if (state.apiCache[apiUrl]) { 
+                return state.apiCache[apiUrl];
+            }
+            
+            try {
+                const response = await fetch(apiUrl);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const json = await response.json();
+                if (json.code === 1 && json.data) { 
+                    state.apiCache[apiUrl] = json.data;
+                    return json.data;
+                } else {
+                    console.error("API Error for date", dateString, ":", json.msg);
+                    return null;
+                }
+            } catch (error) {
+                console.error("Fetch Lunar Data Error for date", dateString, ":", error);
+                return null;
+            }
+        }
+
+        // --- INLINE LUNAR CALENDAR LIBRARY (Simplified for essential data) ---
+        // This is a simplified version of a Chinese calendar library.
+        // It provides basic Gregorian-to-Lunar conversion and GanZhi calculation.
+        // Full-featured libraries are more complex.
+        const LUNAR = (function () {
+            const S = '癸甲乙丙丁戊己庚辛壬'; // 天干
+            const D = '亥子丑寅卯辰巳午未申酉戌'; // 地支
+            const SD = [ // 甲子表
+                '甲子', '乙丑', '丙寅', '丁卯', '戊辰', '己巳', '庚午', '辛未', '壬申', '癸酉',
+                '甲戌', '乙亥', '丙子', '丁丑', '戊寅', '己卯', '庚辰', '辛巳', '壬午', '癸未',
+                '甲申', '乙酉', '丙戌', '丁亥', '戊子', '己丑', '庚寅', '辛卯', '壬辰', '癸巳',
+                '甲午', '乙未', '丙申', '丁酉', '戊戌', '己亥', '庚子', '辛丑', '壬寅', '癸卯',
+                '甲辰', '乙巳', '丙午', '丁未', '戊申', '己酉', '庚戌', '辛亥', '壬子', '癸丑',
+                '甲寅', '乙卯', '丙辰', '丁巳', '戊午', '己未', '庚申', '辛酉', '壬戌', '癸亥'
+            ];
+
+            const animals = ['鼠', '牛', '虎', '兔', '龙', '蛇', '马', '羊', '猴', '鸡', '狗', '猪'];
+            const lunarMonthNames = '正二三四五六七八九十冬腊';
+            const lunarDayNames = ['初一', '初二', '初三', '初四', '初五', '初六', '初七', '初八', '初九', '初十',
+                                  '十一', '十二', '十三', '十四', '十五', '十六', '十七', '十八', '十九', '二十',
+                                  '廿一', '廿二', '廿三', '廿四', '廿五', '廿六', '廿七', '廿八', '廿九', '三十'];
+
+            // 农历数据 (公历年 -> [农历起始日期, 农历每月天数...])
+            // 这里为了简化，只包含一小部分年份数据。完整的需要一个大表。
+            // 示例数据，真实计算需要更复杂的算法或数据表
+            const lunarInfo = new Array(
+                0x04bd8, 0x04ae0, 0x0a570, 0x054d5, 0x0d260, 0x0d950, 0x16554, 0x056a0, 0x09ad0, 0x055d2,
+                0x04ae0, 0x0a5b6, 0x0a4d0, 0x0d250, 0x1d255, 0x0b540, 0x0d6a0, 0x0ada2, 0x095b0, 0x14977,
+                0x04970, 0x0a4b0, 0x0b255, 0x06a20, 0x06d40, 0x14d54, 0x052b0, 0x054ea, 0x0a570, 0x056a0,
+                0x06aa8, 0x06b50, 0x04b60, 0x0a6a6, 0x0d4a0, 0x0e950, 0x05554, 0x0d4a0, 0x05a70, 0x06d42,
+                0x041d0, 0x02776, 0x0a680, 0x064b0, 0x164b2, 0x06a50, 0x06d40, 0x016d8, 0x092b0, 0x011ab,
+                0x049b0, 0x0a568, 0x06b20, 0x06d20, 0x12d56, 0x04920, 0x095b0, 0x14968, 0x04960, 0x0a4a0,
+                0x0ab20, 0x004ca, 0x0ea50, 0x06b60, 0x19256, 0x05ad0, 0x02b60, 0x1d460, 0x09570, 0x04970,
+                0x060f0, 0x045c0, 0x0a276, 0x0a6d0, 0x0d360, 0x04362, 0x052b0, 0x06d40, 0x0d262, 0x04558,
+                0x04970, 0x0a950, 0x064b0, 0x06d44, 0x00950, 0x02560, 0x06578, 0x06d40, 0x0ab60, 0x09570,
+                0x04970, 0x064b0, 0x06d20, 0x0dab2, 0x015b0, 0x01360, 0x06558, 0x06d40, 0x0ab50, 0x02300,
+                0x09570, 0x04970, 0x064b0, 0x06d20, 0x065b2, 0x025b0, 0x04920, 0x03492, 0x07540, 0x06aa0,
+                0x0ad50, 0x04b60, 0x0ab50, 0x092e0, 0x04960, 0x00520, 0x005a0, 0x0404a, 0x05b20, 0x053b0,
+                0x02560, 0x06600, 0x09660, 0x096a0, 0x002b2, 0x02b60, 0x034b2, 0x052b0, 0x06d20, 0x052d0,
+                0x0a950, 0x04970, 0x064b0, 0x07492, 0x06d20, 0x0dab2, 0x015b0, 0x01360, 0x06558, 0x06d40,
+                0x0ab50, 0x02300, 0x09570, 0x04970, 0x064b0, 0x06d20, 0x065b2, 0x025b0, 0x04920, 0x03492,
+                0x07540, 0x06aa0, 0x0ad50, 0x04b60, 0x0ab50, 0x092e0, 0x04960, 0x00520, 0x005a0, 0x0404a,
+                0x05b20, 0x053b0, 0x02560, 0x06600, 0x09660, 0x096a0, 0x002b2, 0x02b60, 0x034b2, 0x052b0,
+                0x06d20, 0x052d0, 0x0a950, 0x04970, 0x064b0, 0x07492, 0x06d20, 0x0dab2, 0x015b0, 0x01360
+            );
+
+            // 获取农历年的总天数
+            function lYearDays(y) {
+                let i, sum = 348;
+                for (i = 0x8000; i > 0x8; i >>= 1) sum += (lunarInfo[y - 1900] & i) ? 1 : 0;
+                return sum + leapDays(y);
+            }
+
+            // 获取闰月的天数
+            function leapDays(y) {
+                if (leapMonth(y)) return ((lunarInfo[y - 1900] & 0x10000) ? 30 : 29);
+                else return 0;
+            }
+
+            // 获取闰月月份
+            function leapMonth(y) {
+                return lunarInfo[y - 1900] & 0xf;
+            }
+
+            // 获取农历月份的天数
+            function monthDays(y, m) {
+                return ((lunarInfo[y - 1900] & (0x10000 >> m)) ? 30 : 29);
+            }
+
+            // 将公历日期转换为农历日期
+            function convertSolarToLunar(year, month, day) {
+                // 公历 1900年1月30日 是 农历 1899年腊月初一 (甲子月 庚子日)
+                const baseDate = new Date(1900, 0, 31); // Adjusted base date to match standard calculations (1900-01-31 is Lunar 1900-01-01)
+                const targetDate = new Date(year, month - 1, day); // month is 1-indexed for input
+
+                let offset = Math.round((targetDate.getTime() - baseDate.getTime()) / 86400000); // Days difference
+
+                let lunarYear = 1900;
+                let lunarMonth = 1;
+                let lunarDay = 1;
+
+                while (offset > 0) {
+                    let daysInYear = lYearDays(lunarYear);
+                    if (offset - daysInYear < 0) break;
+                    offset -= daysInYear;
+                    lunarYear++;
+                }
+
+                let leap = leapMonth(lunarYear);
+                let isLeapMonth = false;
+
+                for (let i = 1; i < 13 && offset >= 0; i++) {
+                    if (leap > 0 && i === leap + 1) { // Current month is after leap month
+                        offset -= monthDays(lunarYear, i);
+                        if (offset < 0) { // If offset went negative, it means we're in the month *before* leap
+                            isLeapMonth = false;
+                            lunarMonth = i - 1; // Lunar month should be previous month (the non-leap one)
+                            offset += monthDays(lunarYear, i); // Add days back
+                            break;
+                        }
+                    }
+
+                    if (i === leap) { // Current month is leap month
+                        let ld = leapDays(lunarYear);
+                        if (offset - ld < 0) {
+                            isLeapMonth = true;
+                            lunarMonth = i;
+                            break;
+                        }
+                        offset -= ld;
+                    }
+
+                    let md = monthDays(lunarYear, i);
+                    if (offset - md < 0) {
+                        isLeapMonth = false;
+                        lunarMonth = i;
+                        break;
+                    }
+                    offset -= md;
+                }
+
+                if (offset < 0) { // Adjust if offset went negative (means we are in the last day of previous month)
+                    offset += monthDays(lunarYear, lunarMonth);
+                    // lunarDay calculation below takes care of the +1, so no change here
+                }
+                
+                lunarDay = offset + 1;
+
+                // Calculate GanZhi for Year, Month, Day
+                const yearGanZhiIndex = (lunarYear - 4) % 60; // 从甲子年开始算
+                const yearGanZhi = SD[yearGanZhiIndex < 0 ? yearGanZhiIndex + 60 : yearGanZhiIndex];
+                const yearAnimal = animals[(lunarYear - 4) % 12];
+
+
+                // Month GanZhi and Day GanZhi are more complex and depend on solar terms.
+                // For simplicity, we'll use the API's Day GanZhi and Month GanZhi as fallback if possible.
+                // Or you'd need a full solar term calculator here.
+                // For now, let's keep it simple for the internal use.
+
+                return {
+                    year: lunarYear,
+                    month: lunarMonth,
+                    day: lunarDay,
+                    isLeap: isLeapMonth,
+                    yearGanZhi: yearGanZhi,
+                    yearAnimal: yearAnimal,
+                    monthName: (isLeapMonth ? '闰' : '') + lunarMonthNames.charAt(lunarMonth - 1) + '月',
+                    dayName: lunarDayNames[lunarDay - 1]
+                };
+            }
+
+            // Function to get the day's GanZhi (simplified, often needs a base date and offset)
+            function getDayGanZhi(year, month, day) {
+                // This is a simplified calculation. Real GanZhi calculation
+                // requires a fixed starting date (e.g., 1899-12-01 lunar is 庚子日)
+                // and counting days from there.
+                // For demonstration, we'll just return a placeholder or rely on API if available.
+                // A correct implementation would involve a constant for the epoch day's Ganzhi
+                // and calculate offset.
+                
+                // Epoch: Jan 1, 1900 (Gregorian) is 庚子日 (Day 36 in Ganzhi cycle)
+                const epochDate = new Date(1900, 0, 1);
+                const targetDate = new Date(year, month - 1, day);
+                const diffDays = Math.floor((targetDate - epochDate) / (1000 * 60 * 60 * 24));
+                const ganZhiIndex = (36 + diffDays) % 60; // 36 is GengZi index (from 甲子=0)
+
+                return SD[ganZhiIndex < 0 ? ganZhiIndex + 60 : ganZhiIndex];
+            }
+
+
+            return {
+                convertSolarToLunar: convertSolarToLunar,
+                getDayGanZhi: getDayGanZhi,
+                gan: S,
+                zhi: D,
+                ganZhi: SD,
+                animals: animals,
+                lunarMonthNames: lunarMonthNames,
+                lunarDayNames: lunarDayNames
+            };
+        })();
+
+        // --- 时辰吉凶计算函数 ---
+        // 简化版时辰吉凶判断，基于日干支和时辰地支
+        // **请注意：这只是一个非常简化的模型，不应作为专业黄历的依据。**
+        // 专业的黄历时辰吉凶计算非常复杂，涉及到日家奇门、八门遁甲、十二建除、青龙明堂等多种神煞，
+        // 以及当日的宜忌、冲煞等综合判断。
+        function calculateAuspiciousHours(date) {
+            const hours = [
+                { time: '子', range: '23:00-00:59' },
+                { time: '丑', range: '01:00-02:59' },
+                { time: '寅', range: '03:00-04:59' },
+                { time: '卯', range: '05:00-06:59' },
+                { time: '辰', range: '07:00-08:59' },
+                { time: '巳', range: '09:00-10:59' },
+                { time: '午', range: '11:00-12:59' },
+                { time: '未', range: '13:00-14:59' },
+                { time: '申', range: '15:00-16:59' },
+                { time: '酉', range: '17:00-18:59' },
+                { time: '戌', range: '19:00-20:59' },
+                { time: '亥', range: '21:00-22:59' }
+            ];
+
+            const solarYear = date.getFullYear();
+            const solarMonth = date.getMonth() + 1;
+            const solarDay = date.getDate();
+
+            // 1. 获取日干支
+            // 使用我们自己的简化的获取日干支函数
+            const dayGanZhi = LUNAR.getDayGanZhi(solarYear, solarMonth, solarDay);
+            if (!dayGanZhi) {
+                return hours.map(h => ({ ...h, ganZhi: '', status: '未知', remark: '日干支计算失败' }));
+            }
+            const dayGan = dayGanZhi[0]; // 日天干
+
+            // 2. 推算时辰天干 (五鼠遁)
+            const ganIndex = LUNAR.gan.indexOf(dayGan);
+            const zhiIndexMap = {
+                '子': 0, '丑': 1, '寅': 2, '卯': 3, '辰': 4, '巳': 5,
+                '午': 6, '未': 7, '申': 8, '酉': 9, '戌': 10, '亥': 11
+            };
+            const hourGanStartMap = {
+                '甲': '甲', '乙': '丙', '丙': '戊', '丁': '庚', '戊': '壬',
+                '己': '甲', '庚': '丙', '辛': '戊', '壬': '庚', '癸': '壬'
+            }; // 甲己还加甲，乙庚丙作初，丙辛从戊起，丁壬庚子居，戊癸何方觅，壬子是真途
+
+            const hourGanBase = hourGanStartMap[dayGan];
+            const hourGanBaseIndex = LUNAR.gan.indexOf(hourGanBase);
+
+
+            return hours.map(h => {
+                const hourZhiIndex = zhiIndexMap[h.time];
+                // 时辰天干 = (时辰地支序 + 日天干起始时辰天干序) % 10
+                const hourGanIndex = (hourGanBaseIndex + hourZhiIndex) % 10;
+                const hourGan = LUNAR.gan[hourGanIndex];
+                const hourGanZhi = hourGan + h.time;
+
+                let status = '平';
+                let remark = '一般';
+
+                // 简化版吉凶判断逻辑 (仅为示例，不代表完整黄历规则)
+                // 假设：
+                // 青龙、明堂为吉
+                // 天刑、朱雀为凶
+                // 金匮、宝光为吉
+                // 白虎、天牢、玄武、勾陈、司命、玉堂为平或次吉/凶
+                
+                // 常见十二神煞与时辰地支的对应关系 (以子时为青龙为例，日干不同起始不同)
+                // 这里需要更精确的日干与十二神煞起始时辰的对应表
+                // 比如：甲乙日 - 子时青龙，丙丁日 - 寅时青龙，戊己日 - 辰时青龙，庚辛日 - 午时青龙，壬癸日 - 申时青龙
+                const shenShaStartZhiIndexMap = {
+                    '甲': zhiIndexMap['子'], '乙': zhiIndexMap['子'],
+                    '丙': zhiIndexMap['寅'], '丁': zhiIndexMap['寅'],
+                    '戊': zhiIndexMap['辰'], '己': zhiIndexMap['辰'],
+                    '庚': zhiIndexMap['午'], '辛': zhiIndexMap['午'],
+                    '壬': zhiIndexMap['申'], '癸': zhiIndexMap['申']
+                };
+                const shenShaStartIndex = shenShaStartZhiIndexMap[dayGan] || 0; // 默认子时为青龙
+
+                const shenShaNames = [
+                    '青龙', '明堂', '天刑', '朱雀', '金匮', '天德', '白虎', '玉堂', '天牢', '玄武', '司命', '勾陈'
+                ]; // 顺序：吉吉凶凶吉吉凶吉凶凶吉凶
+
+                const currentShenShaIndex = (hourZhiIndex - shenShaStartIndex + 12) % 12;
+                const currentShenSha = shenShaNames[currentShenShaIndex];
+
+                // 简化判断：
+                if (['青龙', '明堂', '金匮', '玉堂', '司命'].includes(currentShenSha)) {
+                    status = '吉';
+                    remark = currentShenSha;
+                } else if (['天刑', '朱雀', '白虎', '天牢', '玄武', '勾陈'].includes(currentShenSha)) {
+                    status = '凶';
+                    remark = currentShenSha;
+                } else {
+                    status = '平';
+                    remark = currentShenSha;
+                }
+
+                // 进一步可以加入：
+                // 1. 日冲时辰的判断
+                // 2. 当日五行对时辰的影响
+                // 3. 其他更复杂的吉神凶煞
+                
+                return {
+                    time: h.time,
+                    range: h.range,
+                    ganZhi: hourGanZhi,
+                    status: status,
+                    remark: remark
+                };
+            });
+        }
+
+
+        // --- Core Functions ---
+        async function renderCalendar() {
+            dom.calendarGrid.innerHTML = `
+                <div class="day-header">日</div><div class="day-header">一</div><div class="day-header">二</div>
+                <div class="day-header">三</div><div class="day-header">四</div><div class="day-header">五</div>
+                <div class="day-header">六</div>`;
+            
+            const firstDayOfMonth = new Date(state.currentYear, state.currentMonth, 1).getDay(); 
+            const daysInMonth = new Date(state.currentYear, state.currentMonth + 1, 0).getDate();
+            const daysInPrevMonth = new Date(state.currentYear, state.currentMonth, 0).getDate();
+
+            const monthNames = ["一月", "二月", "三月", "四月", "五月", "六月", "七月", "八月", "九月", "十月", "十一月", "十二月"];
+            dom.headerTitle.textContent = `${state.currentYear}年${monthNames[state.currentMonth]}`;
+            dom.calendarTitle.textContent = `${state.currentYear}年${monthNames[state.currentMonth]}`;
+
+            // Fill leading empty days with previous month's days
+            for (let i = firstDayOfMonth; i > 0; i--) {
+                const day = daysInPrevMonth - i + 1;
+                dom.calendarGrid.insertAdjacentHTML('beforeend', `<div class="day other-month"><span class="day-number">${day}</span></div>`);
+            }
+
+            // Prepare promises for all API calls in the current month
+            const apiPromises = [];
+            for (let i = 1; i <= daysInMonth; i++) {
+                const date = new Date(state.currentYear, state.currentMonth, i);
+                const dateString = date.toISOString().split('T')[0];
+                apiPromises.push(fetchLunarData(dateString));
+            }
+
+            const lunarDataArray = await Promise.all(apiPromises);
+
+            // Render current month's days
+            for (let i = 1; i <= daysInMonth; i++) {
+                const date = new Date(state.currentYear, state.currentMonth, i);
+                const dateString = date.toISOString().split('T')[0];
+                const lunarDataFromApi = lunarDataArray[i - 1]; // Get pre-fetched data from API
+
+                let lunarText = '';
+                let solarTermName = '';
+                let lunarDayName = '';
+                let lunarMonthName = ''; // To get correct lunar month from API
+
+                if (lunarDataFromApi) {
+                    solarTermName = lunarDataFromApi.SolarTermName; 
+                    lunarDayName = lunarDataFromApi.LDay; 
+                    lunarMonthName = lunarDataFromApi.LMonth; // e.g., "腊月"
+                    
+                    if (solarTermName) {
+                        lunarText = `<span class="day-solar-term">${solarTermName}</span>`;
+                    } else if (lunarDayName) {
+                        lunarText = `<span class="lunar-date">${lunarDayName}</span>`;
+                    }
+                } else {
+                    // Fallback to internal lunar calculation if API fails
+                    const internalLunar = LUNAR.convertSolarToLunar(date.getFullYear(), date.getMonth() + 1, date.getDate());
+                    if (internalLunar) {
+                         // Prefer API's LDay if available, else use internal
+                         lunarDayName = internalLunar.dayName;
+                         lunarText = `<span class="lunar-date">${lunarDayName}</span>`;
+                    } else {
+                         lunarText = `<span class="lunar-date">加载中/失败</span>`;
+                    }
+                }
+                
+                const dayElem = document.createElement('div');
+                let classes = ['day'];
+                if (date.toISOString().split('T')[0] === state.today.toISOString().split('T')[0]) classes.push('today');
+                if (date.toISOString().split('T')[0] === state.selectedDate.toISOString().split('T')[0]) classes.push('selected');
+                dayElem.className = classes.join(' ');
+                dayElem.dataset.date = dateString;
+
+                dayElem.innerHTML = `
+                    <span class="day-number">${i}</span>
+                    ${lunarText}
+                    ${state.events[dateString] && state.events[dateString].length > 0 ? '<div class="day-dot"></div>' : ''}
+                `;
+                
+                dom.calendarGrid.appendChild(dayElem);
+            }
+
+            // Fill trailing empty days with next month's days to complete 6 rows (42 cells)
+            const totalCells = dom.calendarGrid.children.length - 7; // Subtract day headers
+            const nextMonthDaysToAdd = (42 - totalCells) % 7; 
+            for (let i = 1; i <= nextMonthDaysToAdd; i++) {
+                dom.calendarGrid.insertAdjacentHTML('beforeend', `<div class="day other-month"><span class="day-number">${i}</span></div>`);
+            }
+        }
+
+        async function updateDailyAlmanacCard(date) {
+            const dateString = date.toISOString().split('T')[0];
+            const lunarData = await fetchLunarData(dateString); // Still fetching for Yi/Ji
+
+            if (lunarData) {
+                dom.almanacCardTitle.textContent = `${lunarData.LMonth}${lunarData.LDay} 今日事宜`; 
+                dom.almanacYi.textContent = lunarData.Yi || '暂无';
+                dom.almanacJi.textContent = lunarData.Ji || '暂无';
+            } else {
+                dom.almanacCardTitle.textContent = '加载黄历信息失败';
+                dom.almanacYi.textContent = '无法获取';
+                dom.almanacJi.textContent = '无法获取';
+            }
+        }
+
+        async function updateFullAlmanac(date) {
+            const dateString = date.toISOString().split('T')[0];
+            const lunarData = await fetchLunarData(dateString); // Still fetching for most almanac data
+            
+            dom.almanacFullDay.textContent = String(date.getDate()).padStart(2,'0');
+            
+            let lunarInfoText = `无法获取黄历信息`;
+            if (lunarData) {
+                lunarInfoText = `${lunarData.LMonthName}${lunarData.LDay} ${lunarData.LYear}年 (${lunarData.TianGanDiZhiYear}) ${lunarData.TianGanDiZhiMonth}月 ${lunarData.TianGanDiZhiDay}日`; 
+                
+                dom.almanacFullYi.textContent = lunarData.Yi || '暂无';
+                dom.almanacFullJi.textContent = lunarData.Ji || '暂无';
+                dom.almanacFullChong.textContent = lunarData.Chong || '暂无';
+                dom.almanacFullTaishen.textContent = lunarData.Taishen || '暂无';
+                dom.almanacFullPengzu.textContent = lunarData.PengZu || '暂无'; 
+                dom.almanacFullJishen.textContent = lunarData.ShenWei.split(' ').filter(s => s.includes('神')).join(', ') || '暂无'; 
+                dom.almanacFullXiongshen.textContent = lunarData.SuiSha || '暂无'; 
+            } else {
+                // Try to get some basic lunar info from internal calculation if API fails
+                const internalLunar = LUNAR.convertSolarToLunar(date.getFullYear(), date.getMonth() + 1, date.getDate());
+                if (internalLunar) {
+                    const dayGanZhi = LUNAR.getDayGanZhi(date.getFullYear(), date.getMonth() + 1, date.getDate());
+                    lunarInfoText = `${internalLunar.monthName}${internalLunar.dayName} ${internalLunar.yearAnimal}年 (${internalLunar.yearGanZhi}) ${dayGanZhi}日`; // Month GanZhi is hard to get without solar terms.
+                }
+                dom.almanacFullYi.textContent = '无法获取';
+                dom.almanacFullJi.textContent = '无法获取';
+                dom.almanacFullChong.textContent = '无法获取';
+                dom.almanacFullTaishen.textContent = '无法获取';
+                dom.almanacFullPengzu.textContent = '无法获取';
+                dom.almanacFullJishen.textContent = '无法获取';
+                dom.almanacFullXiongshen.textContent = '无法获取';
+            }
+            dom.almanacFullLunarInfo.innerHTML = lunarInfoText;
+
+            // 时辰吉凶：现在由 JS 计算
+            const auspiciousHours = calculateAuspiciousHours(date);
+            dom.almanacFullHours.innerHTML = auspiciousHours.map(hour => `
+                <div class="hour-item">
+                    <div>${hour.time} ${hour.range}</div>
+                    <div>${hour.ganZhi}</div>
+                    <div class="status-${hour.status === '吉' ? 'good' : 'bad'}">${hour.status} ${hour.remark}</div>
+                </div>
+            `).join('');
+        }
+
+        function renderEventsView() {
+            const container = document.getElementById('events-view');
+            container.innerHTML = ''; // Clear previous content
+
+            const sortedDates = Object.keys(state.events).sort((a,b) => new Date(b) - new Date(a)); // Sort descending
+
+            if (sortedDates.length === 0) {
+                container.innerHTML = '<div id="no-events">暂无事件，点击右下角添加</div>';
+                return;
+            }
+
+            const week = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+            let currentGroupDate = null;
+
+            sortedDates.forEach(dateStr => {
+                const date = new Date(dateStr + 'T00:00:00'); // Ensure UTC for consistent date objects
+                const yearMonth = `${date.getFullYear()}年${date.getMonth() + 1}月`;
+
+                // Create a new group for each month
+                if (yearMonth !== currentGroupDate) {
+                    const groupTitle = document.createElement('div');
+                    groupTitle.className = 'event-group-title';
+                    groupTitle.style.cssText = 'font-size: 14px; color: var(--text-secondary-color); margin: 20px 0 10px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px;';
+                    groupTitle.textContent = yearMonth;
+                    container.appendChild(groupTitle);
+                    currentGroupDate = yearMonth;
+                }
+
+                // Add date header for each specific date
+                const dateHeader = document.createElement('div');
+                dateHeader.className = 'event-date';
+                dateHeader.innerHTML = `<span class="day-number">${date.getDate()}</span> <span>${week[date.getDay()]}</span>`;
+                container.appendChild(dateHeader);
+
+                // Add events for this date
+                state.events[dateStr].forEach(event => {
+                    const eventCard = document.createElement('div');
+                    eventCard.className = 'event-card';
+                    eventCard.innerHTML = `
+                        <div>${event.title}</div>
+                        <span class="delete-event" data-date="${dateStr}" data-id="${event.id}">✕</span>
+                    `;
+                    container.appendChild(eventCard);
+                });
+            });
+        }
+
+        async function renderCountdowns() {
+            const container = document.querySelector('#countdown-view');
+            container.innerHTML = '';
+
+            const now = new Date();
+            now.setHours(0,0,0,0); 
+
+            const customCountdowns = [];
+            state.countdowns.forEach(countdown => {
+                let targetDate = new Date(countdown.date + "T00:00:00");
+                
+                if (countdown.repeatAnnually) {
+                    const originalMonth = targetDate.getMonth();
+                    const originalDay = targetDate.getDate();
+
+                    targetDate.setFullYear(now.getFullYear()); 
+                    targetDate.setMonth(originalMonth);
+                    targetDate.setDate(originalDay);
+
+                    if (targetDate < now) { 
+                        targetDate.setFullYear(now.getFullYear() + 1); 
+                    }
+                } else if (targetDate < now) {
+                    return; 
+                }
+
+                targetDate.setHours(0,0,0,0); 
+                const diffTime = targetDate - now;
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                if (diffDays >= 0) {
+                    customCountdowns.push({
+                        id: countdown.id,
+                        name: countdown.name,
+                        date: targetDate,
+                        diffDays: diffDays,
+                        type: 'custom',
+                        repeatAnnually: countdown.repeatAnnually
+                    });
+                }
+            });
+
+            // Only custom countdowns now, just sort them
+            customCountdowns.sort((a,b) => {
+                if (a.date.getTime() !== b.date.getTime()) {
+                    return a.date.getTime() - b.date.getTime();
+                }
+                return a.name.localeCompare(b.name);
+            });
+
+            // Render to DOM
+            const customCountdownsSection = document.createElement('div');
+            customCountdownsSection.innerHTML = '<div class="section-title">我的倒数日</div>';
+
+            let hasCustomCountdowns = false;
+
+            customCountdowns.forEach(item => {
+                const itemHtml = `
+                    <div class="countdown-item" data-id="${item.id}">
+                        <div class="info">
+                            <div class="name">${item.name}</div>
+                            <div class="date">${item.date.getFullYear()}年${item.date.getMonth() + 1}月${item.date.getDate()}日</div>
+                        </div>
+                        <div class="days-left">${item.diffDays} <span>天</span></div>
+                        <span class="delete-countdown" data-id="${item.id}">✕</span>
+                    </div>
+                `;
+                customCountdownsSection.insertAdjacentHTML('beforeend', itemHtml);
+                hasCustomCountdowns = true;
+            });
+
+            if (!hasCustomCountdowns) {
+                customCountdownsSection.insertAdjacentHTML('beforeend', '<div id="no-custom-countdowns">暂无自定义倒数日，点击右下角添加</div>');
+            }
+
+            container.appendChild(customCountdownsSection);
+        }
+
+
+        // --- View & Navigation ---
+        async function setActiveView(index, withAnimation = true) { 
+            if (state.isSearchBarActive && index !== 4 && state.activeViewIndex !== 4) {
+                return; 
+            }
+
+            state.activeViewIndex = index;
+            dom.viewsContainer.style.transition = withAnimation ? 'transform 0.3s ease-in-out' : 'none';
+            dom.viewsContainer.style.transform = `translateX(-${index * 100}%)`;
+
+            dom.navItems.forEach(item => item.classList.remove('active'));
+            if (navItemMap[index] !== undefined) {
+                const activeNavItem = document.querySelector(`.nav-item[data-view-index="${navItemMap[index]}"]`);
+                if (activeNavItem) activeNavItem.classList.add('active');
+            }
+
+            dom.headerTitle.textContent = {
+                0: `${state.currentYear}年${new Date(state.currentYear, state.currentMonth).toLocaleDateString('zh-CN', { month: 'long' })}`,
+                1: '事件列表', 
+                2: '倒数日', 
+                3: '今日黄历', 
+                4: '搜索结果' 
+            }[index];
+
+            dom.addEventBtn.classList.remove('visible');
+            dom.addCountdownBtn.classList.remove('visible');
+            if (index === 1) { 
+                dom.addEventBtn.classList.add('visible');
+            } else if (index === 2) { 
+                dom.addCountdownBtn.classList.add('visible');
+            }
+
+            const viewId = viewIds[index];
+            if (viewId === 'calendar-view') {
+                await renderCalendar(); 
+                await updateDailyAlmanacCard(state.selectedDate); 
+            }
+            if (viewId === 'events-view') renderEventsView();
+            if (viewId === 'countdown-view') await renderCountdowns(); 
+            if (viewId === 'almanac-view') await updateFullAlmanac(state.selectedDate); 
+        }
+
+        // --- Event Management ---
+        function saveEvents() {
+            localStorage.setItem('calendar_events_pro', JSON.stringify(state.events));
+        }
+        function openEventModal(date) { 
+            dom.eventDateInput.value = date.toISOString().split('T')[0]; 
+            dom.eventTitleInput.value = ''; 
+            dom.eventModal.classList.add('show'); 
+            dom.eventTitleInput.focus(); 
+        }
+        function closeEventModal() { dom.eventModal.classList.remove('show'); }
+        function addEvent(dateStr, title) { 
+            if (!state.events[dateStr]) { state.events[dateStr] = []; } 
+            state.events[dateStr].push({ id: Date.now(), title: title }); 
+            saveEvents(); 
+            renderCalendar(); 
+            if(state.activeViewIndex === 1) renderEventsView(); 
+            if (state.activeViewIndex === 0 && dateStr === state.selectedDate.toISOString().split('T')[0]) {
+                updateDailyAlmanacCard(state.selectedDate);
+            }
+        }
+        function deleteEvent(dateStr, eventId) { 
+            if (state.events[dateStr]) { 
+                state.events[dateStr] = state.events[dateStr].filter(e => e.id !== eventId); 
+                if (state.events[dateStr].length === 0) delete state.events[dateStr]; 
+                saveEvents(); 
+                renderCalendar(); 
+                renderEventsView(); 
+            } 
+        }
+
+        // --- Countdown Management (New) ---
+        function saveCountdowns() {
+            localStorage.setItem('calendar_countdowns_pro', JSON.stringify(state.countdowns));
+        }
+
+        function openCountdownModal(countdown = null) {
+            if (countdown) {
+                dom.countdownTitleInput.value = countdown.name;
+                dom.countdownDateInput.value = new Date(countdown.date).toISOString().split('T')[0];
+                dom.countdownRepeatCheckbox.checked = countdown.repeatAnnually;
+                dom.countdownModal.dataset.editId = countdown.id; // Store ID for editing
+                dom.countdownModal.querySelector('h3').textContent = '修改倒数日';
+            } else {
+                dom.countdownTitleInput.value = '';
+                dom.countdownDateInput.value = state.today.toISOString().split('T')[0]; 
+                dom.countdownRepeatCheckbox.checked = false; 
+                delete dom.countdownModal.dataset.editId; // Clear edit ID
+                dom.countdownModal.querySelector('h3').textContent = '添加倒数日';
+            }
+            dom.countdownModal.classList.add('show');
+            dom.countdownTitleInput.focus();
+        }
+
+        function closeCountdownModal() {
+            dom.countdownModal.classList.remove('show');
+            delete dom.countdownModal.dataset.editId; // Ensure cleanup
+        }
+
+        function addOrUpdateCountdown(title, dateStr, repeatAnnually, id = null) {
+            if (id) {
+                // Update existing countdown
+                state.countdowns = state.countdowns.map(c => 
+                    c.id === id ? { ...c, name: title, date: dateStr, repeatAnnually: repeatAnnually } : c
+                );
+            } else {
+                // Add new countdown
+                const newCountdown = {
+                    id: Date.now(), 
+                    name: title,
+                    date: dateStr,
+                    repeatAnnually: repeatAnnually
+                };
+                state.countdowns.push(newCountdown);
+            }
+            saveCountdowns();
+            renderCountdowns(); 
+        }
+
+        function deleteCountdown(id) {
+            state.countdowns = state.countdowns.filter(c => c.id !== id);
+            saveCountdowns();
+            renderCountdowns(); 
+        }
+
+        // --- Search Functionality ---
+        function performSearch(query) {
+            dom.searchResultsView.innerHTML = '';
+            if (!query) {
+                dom.searchResultsView.innerHTML = '<div id="no-search-results">输入关键词搜索您的事件</div>';
+                return;
+            }
+            const results = [];
+            for (const dateStr in state.events) {
+                state.events[dateStr].forEach(event => {
+                    if (event.title.toLowerCase().includes(query.toLowerCase())) {
+                        results.push({ date: dateStr, ...event });
+                    }
+                });
+            }
+            results.sort((a,b) => new Date(b.date) - new Date(a.date) || b.id - a.id); 
+            if(results.length === 0) {
+                dom.searchResultsView.innerHTML = '<div id="no-search-results">未找到相关事件</div>';
+                return;
+            }
+            const week = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+            results.forEach(event => {
+                const date = new Date(event.date + 'T00:00:00');
+                dom.searchResultsView.innerHTML += `
+                    <div class="event-card search-result-item" data-date="${event.date}">
+                        <div>
+                            <div>${event.title}</div>
+                            <div style="font-size:12px; color: var(--text-secondary-color)">${date.getFullYear()}年${date.getMonth()+1}月${date.getDate()}日 ${week[date.getDay()]}</div>
+                        </div>
+                    </div>`;
+            });
+        }
+        
+        // --- More Menu Functionality ---
+        function toggleTheme() {
+            state.theme = state.theme === 'light' ? 'dark' : 'light';
+            dom.body.className = state.theme + '-theme';
+            localStorage.setItem('calendar_theme', state.theme);
+            dom.themeToggleText.textContent = state.theme === 'light' ? '切换深色模式' : '切换浅色模式';
+            dom.themeToggleIcon.innerHTML = state.theme === 'light' ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>';
+        }
+        function exportEvents() {
+            if (Object.keys(state.events).length === 0 && state.countdowns.length === 0) { alert("没有事件和倒数日可以导出。"); return; }
+            
+            const exportData = {
+                events: state.events,
+                countdowns: state.countdowns
+            };
+
+            const dataStr = JSON.stringify(exportData, null, 2);
+            const blob = new Blob([dataStr], {type: "application/json"});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `calendar_data_backup_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            dom.moreMenu.classList.remove('show');
+        }
+        function importEvents(file) {
+            const reader = new FileReader();
+            reader.onload = e => {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    
+                    if (importedData.events) {
+                        for (const dateStr in importedData.events) {
+                            if (!state.events[dateStr]) {
+                                state.events[dateStr] = [];
+                            }
+                            importedData.events[dateStr].forEach(importedEvent => {
+                                const exists = state.events[dateStr].some(existingEvent => existingEvent.id === importedEvent.id);
+                                if (!exists) {
+                                    state.events[dateStr].push(importedEvent);
+                                }
+                            });
+                        }
+                    }
+
+                    if (importedData.countdowns) {
+                        importedData.countdowns.forEach(importedCountdown => {
+                            const exists = state.countdowns.some(existingCountdown => existingCountdown.id === importedCountdown.id);
+                            if (!exists) {
+                                state.countdowns.push(importedCountdown);
+                            }
+                        });
+                    }
+
+                    saveEvents();
+                    saveCountdowns(); 
+                    renderCalendar();
+                    if(state.activeViewIndex === 1) renderEventsView();
+                    if(state.activeViewIndex === 2) renderCountdowns(); 
+                    alert("数据导入成功！");
+                } catch (error) {
+                    alert("导入失败，文件格式不正确或数据损坏。");
+                    console.error("Import error:", error);
+                } finally {
+                    dom.moreMenu.classList.remove('show');
+                    dom.importFileInput.value = ''; 
+                }
+            };
+            reader.readAsText(file);
+        }
+        function clearAllEvents() {
+            if (confirm("您确定要清空所有事件和倒数日吗？此操作无法撤销。")) {
+                state.events = {};
+                state.countdowns = []; 
+                saveEvents();
+                saveCountdowns(); 
+                renderCalendar();
+                if(state.activeViewIndex === 1) renderEventsView();
+                if(state.activeViewIndex === 2) renderCountdowns(); 
+                alert("所有事件和倒数日已清空。");
+            }
+            dom.moreMenu.classList.remove('show');
+        }
+
+        // --- Event Listeners Setup ---
+        function setupEventListeners() {
+            // Navigation
+            dom.navItems.forEach(item => {
+                item.addEventListener('click', () => setActiveView(parseInt(item.dataset.viewIndex)));
+            });
+
+            // Calendar controls
+            document.getElementById('prev-month').addEventListener('click', async () => { 
+                state.currentMonth--; 
+                if (state.currentMonth < 0) { state.currentMonth = 11; state.currentYear--; } 
+                await renderCalendar(); 
+                await updateDailyAlmanacCard(state.selectedDate); 
+            });
+            document.getElementById('next-month').addEventListener('click', async () => { 
+                state.currentMonth++; 
+                if (state.currentMonth > 11) { state.currentMonth = 0; state.currentYear++; } 
+                await renderCalendar(); 
+                await updateDailyAlmanacCard(state.selectedDate); 
+            });
+            document.getElementById('today-btn').addEventListener('click', async () => { 
+                state.currentYear = state.today.getFullYear(); 
+                state.currentMonth = state.today.getMonth(); 
+                state.selectedDate = state.today; 
+                await renderCalendar(); 
+                await updateDailyAlmanacCard(state.selectedDate); 
+                if(state.activeViewIndex === 3) await updateFullAlmanac(state.selectedDate); 
+                setActiveView(0); 
+            });
+
+            dom.calendarGrid.addEventListener('click', async e => { 
+                const dayElem = e.target.closest('.day:not(.other-month)'); 
+                if(dayElem){ 
+                    const currentlySelected = dom.calendarGrid.querySelector('.day.selected');
+                    if (currentlySelected) {
+                        currentlySelected.classList.remove('selected');
+                    }
+                    dayElem.classList.add('selected');
+                    state.selectedDate = new Date(dayElem.dataset.date + 'T00:00:00'); 
+                    await updateDailyAlmanacCard(state.selectedDate); 
+                    if(state.activeViewIndex === 3) await updateFullAlmanac(state.selectedDate); 
+                } 
+            });
+            dom.calendarGrid.addEventListener('dblclick', e => { 
+                const dayElem = e.target.closest('.day:not(.other-month)'); 
+                if(dayElem){ 
+                    openEventModal(new Date(dayElem.dataset.date + 'T00:00:00')); 
+                } 
+            });
+
+            // Event modal
+            document.getElementById('modal-cancel-btn').addEventListener('click', closeEventModal);
+            document.getElementById('modal-save-btn').addEventListener('click', () => { 
+                const dateStr = dom.eventDateInput.value; 
+                const title = dom.eventTitleInput.value.trim(); 
+                if (title) { 
+                    addEvent(dateStr, title); 
+                    closeEventModal(); 
+                } else { 
+                    alert('请输入事件标题'); 
+                } 
+            });
+
+            // Handle add event button click (global floating button)
+            dom.addEventBtn.addEventListener('click', () => {
+                openEventModal(state.selectedDate || state.today); 
+            });
+
+            // Handle delete event button click on events view and search results view
+            document.addEventListener('click', e => { 
+                if (e.target.classList.contains('delete-event')) { 
+                    if (confirm("您确定要删除此事件吗？")) {
+                        deleteEvent(e.target.dataset.date, parseInt(e.target.dataset.id)); 
+                    }
+                } 
+            });
+            
+            // Countdown modal (New Listeners)
+            dom.addCountdownBtn.addEventListener('click', () => openCountdownModal()); // No argument for adding new
+
+            document.getElementById('countdown-modal-cancel-btn').addEventListener('click', closeCountdownModal);
+            document.getElementById('countdown-modal-save-btn').addEventListener('click', () => {
+                const title = dom.countdownTitleInput.value.trim();
+                const dateStr = dom.countdownDateInput.value;
+                const repeatAnnually = dom.countdownRepeatCheckbox.checked;
+                const editId = dom.countdownModal.dataset.editId ? parseInt(dom.countdownModal.dataset.editId) : null;
+
+                if (title && dateStr) {
+                    addOrUpdateCountdown(title, dateStr, repeatAnnually, editId);
+                    closeCountdownModal();
+                } else {
+                    alert('请输入倒数日名称和日期');
+                }
+            });
+
+            // Add click listener for editing countdowns
+            document.addEventListener('click', e => {
+                if (e.target.classList.contains('countdown-item') && !e.target.classList.contains('delete-countdown')) {
+                    // Clicking on the item itself (not the delete button)
+                    const id = parseInt(e.target.dataset.id);
+                    const countdownToEdit = state.countdowns.find(c => c.id === id);
+                    if (countdownToEdit) {
+                        openCountdownModal(countdownToEdit);
+                    }
+                } else if (e.target.closest('.countdown-item') && !e.target.classList.contains('delete-countdown')) {
+                    // Clicking on child elements of countdown-item, excluding delete button
+                    const item = e.target.closest('.countdown-item');
+                    const id = parseInt(item.dataset.id);
+                    const countdownToEdit = state.countdowns.find(c => c.id === id);
+                    if (countdownToEdit) {
+                        openCountdownModal(countdownToEdit);
+                    }
+                } else if (e.target.classList.contains('delete-countdown')) {
+                    // Clicking on the delete button
+                    if (confirm("您确定要删除此倒数日吗？")) {
+                        deleteCountdown(parseInt(e.target.dataset.id));
+                    }
+                }
+            });
+
+
+            // Search
+            document.querySelector('.search-icon').addEventListener('click', () => {
+                dom.searchBar.classList.add('active');
+                state.isSearchBarActive = true; 
+                dom.searchInput.focus();
+                setActiveView(4, false); 
+            });
+            document.querySelector('.close-search').addEventListener('click', () => {
+                dom.searchBar.classList.remove('active');
+                state.isSearchBarActive = false; 
+                dom.searchInput.value = ''; 
+                setActiveView(0); 
+            });
+            dom.searchInput.addEventListener('input', e => { 
+                performSearch(e.target.value); 
+                if(state.activeViewIndex !== 4) {
+                    setActiveView(4, false); 
+                }
+            });
+            dom.searchResultsView.addEventListener('click', async e => { 
+                const item = e.target.closest('.search-result-item'); 
+                if(item) { 
+                    const date = new Date(item.dataset.date + 'T00:00:00'); 
+                    state.currentYear = date.getFullYear(); 
+                    state.currentMonth = date.getMonth(); 
+                    state.selectedDate = date; 
+                    await renderCalendar(); 
+                    await updateDailyAlmanacCard(date); 
+                    setActiveView(0); 
+                    dom.searchBar.classList.remove('active'); 
+                    state.isSearchBarActive = false; 
+                    dom.searchInput.value = ''; 
+                } 
+            });
+            
+            // More menu
+            document.querySelector('.more-icon').addEventListener('click', e => { 
+                e.stopPropagation(); 
+                dom.moreMenu.classList.toggle('show'); 
+            });
+            document.addEventListener('click', (event) => {
+                if (!dom.moreMenu.contains(event.target) && !document.querySelector('.more-icon').contains(event.target)) {
+                    dom.moreMenu.classList.remove('show');
+                }
+            });
+            dom.moreMenu.addEventListener('click', e => e.stopPropagation()); 
+            dom.themeToggle.addEventListener('click', toggleTheme);
+            document.getElementById('export-events').addEventListener('click', exportEvents);
+            document.getElementById('clear-events').addEventListener('click', clearAllEvents);
+            document.getElementById('import-events').addEventListener('click', () => dom.importFileInput.click());
+            dom.importFileInput.addEventListener('change', e => { if (e.target.files.length) importEvents(e.target.files[0]); });
+
+            // Swipe Gestures for main content navigation
+            const mainContent = document.querySelector('.main-content');
+            mainContent.addEventListener('touchstart', e => { 
+                if (state.isSearchBarActive || state.activeViewIndex === 4) return;
+
+                state.touchStartX = e.touches[0].clientX; 
+                state.isSwiping = true; 
+                dom.viewsContainer.style.transition = 'none'; 
+            }, { passive: true }); 
+            
+            mainContent.addEventListener('touchmove', e => {
+                if (!state.isSwiping || state.isSearchBarActive || state.activeViewIndex === 4) return; 
+
+                state.touchMoveX = e.touches[0].clientX;
+                const deltaX = state.touchStartX - state.touchMoveX;
+                
+                const currentViewOffset = state.activeViewIndex * mainContent.offsetWidth;
+                const newOffset = currentViewOffset + deltaX;
+                const newTransformPercentage = (newOffset / mainContent.offsetWidth) * 100;
+                
+                dom.viewsContainer.style.transform = `translateX(-${newTransformPercentage}%)`;
+            }, { passive: true });
+
+            mainContent.addEventListener('touchend', e => { 
+                if (!state.isSwiping || state.isSearchBarActive || state.activeViewIndex === 4) return; 
+
+                state.isSwiping = false; 
+                dom.viewsContainer.style.transition = 'transform 0.3s ease-in-out'; 
+
+                const touchEndX = e.changedTouches[0].clientX; 
+                const swipeDist = touchEndX - state.touchStartX; 
+
+                const swipeThreshold = mainContent.offsetWidth / 4; 
+
+                let newViewIndex = state.activeViewIndex;
+
+                if (Math.abs(swipeDist) > swipeThreshold) { 
+                    if (swipeDist > 0) { 
+                        newViewIndex = Math.max(0, state.activeViewIndex - 1); 
+                    } else { 
+                        newViewIndex = Math.min(3, state.activeViewIndex + 1); 
+                    }
+                }
+                setActiveView(newViewIndex);
+            }, { passive: true });
+        }
+        
+        // --- Initialization ---
+        async function init() { 
+            try {
+                const loadedEvents = JSON.parse(localStorage.getItem('calendar_events_pro'));
+                if (loadedEvents && typeof loadedEvents === 'object') {
+                    state.events = loadedEvents;
+                }
+            } catch (e) {
+                console.error("Failed to parse events from localStorage:", e);
+                state.events = {}; 
+            }
+
+            try {
+                const loadedCountdowns = JSON.parse(localStorage.getItem('calendar_countdowns_pro'));
+                if (loadedCountdowns && Array.isArray(loadedCountdowns)) {
+                    state.countdowns = loadedCountdowns;
+                }
+            } catch (e) {
+                console.error("Failed to parse countdowns from localStorage:", e);
+                state.countdowns = []; 
+            }
+
+            dom.body.className = state.theme + '-theme';
+            dom.themeToggleText.textContent = state.theme === 'light' ? '切换深色模式' : '切换浅色模式';
+            dom.themeToggleIcon.innerHTML = state.theme === 'light' ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>';
+            
+            setupEventListeners();
+            await setActiveView(0, false); 
+        }
+
+        init();
+    })();
+    </script>
+</body>
+</html>
